@@ -1,0 +1,53 @@
+---
+- hosts: localhost
+  gather_facts: no
+  connection: local
+  vars:
+    profile: "talin"
+    aws_access_key: "AKIAIXZKVSRBF6C3OJCQ"
+    aws_secret_key: "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"
+    region: "us-east-1"
+    cidr_block: "10.10.0.0/16"
+    cidr_pub: "10.10.2.0/28"
+    cidr_pvt: "10.10.1.0/28"
+  vars_prompt:
+  - name: "public_subnet_id"
+    prompt: "Enter public subnet id"
+    private: no
+  - name: "private_subnet_id"
+    prompt: "Enter private subnet id"
+    private: no
+  - name: "public_sg_id"
+    prompt: "Enter public security group id"
+    private: no
+  - name: "private_sg_id"
+    prompt: "Enter private security group id"
+    private: no
+  - name: "ami_id"
+    prompt: "Enter amazon machine image id"
+    private: no
+  tasks:
+  - name: "Configure EC2 instance and launch it"
+    ec2:
+      state: present
+      aws_access_key: "{{ aws_access_key }}"
+      aws_secret_key: "{{ aws_secret_key }}"
+      region: "{{ region }}"
+      vpc_subnet_id: "{{ public_subnet_id }}"
+      key_name: "testpem"
+      instance_type: "t2.micro"
+      image: "{{ ami_id }}"
+      count: 1
+      assign_public_ip: yes
+      wait: yes
+      group_id: "{{ public_sg_id }}"
+      tenancy: default
+      termination_protection: yes
+      monitoring: yes
+      instance_initiated_shutdown_behavior: stop
+      instance_tags:
+        Name: "public ec2 instance"
+    register: public_router_facts
+#  - debug: msg= "{{ public_router_facts }}"
+
+...

@@ -1,0 +1,74 @@
+---
+- hosts: localhost
+  gather_facts: no
+  connection: local
+  vars:
+    profile: "talin"
+    aws_access_key: "AKIAIXZKVSRBF6C3OJCQ"
+    aws_secret_key: "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"
+    region: "us-east-1"
+    cidr_block: "10.10.0.0/16"
+    cidr_pub: "10.10.2.0/28"
+    cidr_pvt: "10.10.1.0/28"
+  tasks:
+  - name: "create aws VPC with default tenancy and couple of tags"
+    ec2_vpc_net:
+      name: "Module_dev2"
+      cidr_block: "{{ cidr_block }}"
+      aws_access_key: "{{ aws_access_key }}"
+      aws_secret_key: "{{ aws_secret_key }}"
+      profile: "{{ profile }}"
+      region: "{{ region }}"
+      tenancy: default
+      state: present
+      tags:
+        module: "ec2_vpc_net"
+        env: "dev"
+    register: vpc_facts
+  - name: "set vpc facts"
+    set_fact:
+      vpc: "{{ vpc_facts.vpc }}"
+  - debug: msg="{{ vpc }}"
+
+  - name: "create a public subnet"
+    ec2_vpc_subnet:
+      aws_access_key: "{{ aws_access_key }}"
+      aws_secret_key: "{{ aws_secret_key }}"
+      state: present
+      az: "{{ region }}a"
+      vpc_id: "{{ vpc.id }}"
+      map_public: true
+#      profile: "{{ profile }}"
+      region: "{{ region }}"
+      cidr: "{{ cidr_pub }}"
+      resource_tags:
+        Name: "public subnet"
+    register: pub_subnet
+#  - debug: msg= "{{ pub_subnet }}"
+
+  - name: "create a private subnet"
+    ec2_vpc_subnet:
+      aws_access_key: "{{ aws_access_key }}"
+      aws_secret_key: "{{ aws_secret_key }}"
+      state: present
+      az: "{{ region }}b"
+      vpc_id: "{{ vpc.id }}"
+      map_public: false
+#      profile: "{{ profile }}"
+      region: "{{ region }}"
+      cidr: "{{ cidr_pvt }}"
+      resource_tags:
+        Name: "private subnet"
+    register: pvt_subnet
+#  - debug: msg= "{{ pvt_subnet }}"
+
+  - name: "create an internet gateway"
+    ec2_vpc_igw:
+      aws_access_key: "{{ aws_access_key }}"
+      aws_secret_key: "{{ aws_secret_key }}"
+      region: "{{ region }}"
+      state: present
+      vpc_id: "{{ vpc.id }}"
+      tags:
+        Name: "trial igw"
+...

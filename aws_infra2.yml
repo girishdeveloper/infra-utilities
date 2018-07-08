@@ -1,0 +1,112 @@
+---
+- hosts: localhost
+  gather_facts: no
+  connection: local
+  vars:
+    profile: "talin"
+    aws_access_key: "AKIAIXZKVSRBF6C3OJCQ"
+    aws_secret_key: "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"
+    region: "us-east-1"
+    cidr_block: "10.10.0.0/16"
+    cidr_pub: "10.10.2.0/28"
+    cidr_pvt: "10.10.1.0/28"
+  vars_prompt:
+  - name: "vpc_id"
+    prompt: "Enter vpc id"
+    private: no
+  - name: "igwid"
+    prompt: "Enter gateway id"
+    private: no
+  - name: "public_rt_id"
+    prompt: "Enter public router id"
+    private: no
+  - name: "public_sg_id"
+    prompt: "Enter public security group id"
+    private: no
+  tasks:
+  - name: "Configure public routing table"
+    ec2_vpc_route_table:
+      state: present
+      aws_access_key: "{{ aws_access_key }}"
+      aws_secret_key: "{{ aws_secret_key }}"
+      region: "{{ region }}"
+      vpc_id: "{{ vpc_id }}"
+      lookup: "id"
+      route_table_id: "{{ public_rt_id }}"
+      subnets:
+        - "public subnet"
+      routes:
+        - dest: "0.0.0.0/0"
+          gateway_id: "{{ igwid }}"
+      tags:
+        Name: "public route table"
+    register: public_router_facts
+#  - debug: msg= "{{ public_router_facts }}"
+
+  - name: "configure public security group"
+    ec2_group:
+      state: present
+      aws_access_key: "{{ aws_access_key }}"
+      aws_secret_key: "{{ aws_secret_key }}"
+      region: "{{ region }}"
+      name: "public sg"
+      description: "default VPC security group"
+      vpc_id: "{{ vpc_id }}"
+      group_id: "{{ public_sg_id }}"
+      rules:
+        - proto: tcp
+          from_port: 80
+          to_port: 80
+          cidr_ip: "0.0.0.0/0"
+        - proto: tcp
+          from_port: 22
+          to_port: 22
+          cidr_ip: "0.0.0.0/0"
+        - proto: tcp
+          from_port: 443
+          to_port: 443
+          cidr_ip: "0.0.0.0/0"
+
+  - name: "create a private routing table"
+    ec2_vpc_route_table:
+      state: present
+      aws_access_key: "{{ aws_access_key }}"
+      aws_secret_key: "{{ aws_secret_key }}"
+      region: "{{ region }}"
+      vpc_id: "{{ vpc_id }}"
+      subnets:
+        - "private subnet"
+      routes:
+        - dest: "{{ cidr_pub }}"
+          gateway_id: "local"
+      tags:
+        Name: "private route table"
+    register: private_router_facts
+#  - debug: msg= "{{ private_router_facts }}"
+
+  - name: "configure private security group"
+    ec2_group:
+      state: present
+      aws_access_key: "{{ aws_access_key }}"
+      aws_secret_key: "{{ aws_secret_key }}"
+      region: "{{ region }}"
+      name: "private sg"
+      description: "configure private security group"
+      vpc_id: "{{ vpc_id }}"
+      rules:
+        - proto: tcp
+          from_port: 3306
+          to_port: 3306
+          group_id: "{{ public_sg_id }}"
+        - proto: tcp
+          from_port: 5432
+          to_port: 5432
+          group_id: "{{ public_sg_id }}"
+        - proto: tcp
+          from_port: 22
+          to_port: 22
+          group_id: "{{ public_sg_id }}"
+      rules_egress:
+        - proto: all
+          group_id: "{{ public_sg_id }}"
+...
